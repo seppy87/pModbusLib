@@ -16,5 +16,6 @@
 #include<functional>
 #include<future>
 #include<thread>
+#include<memory>
 
 

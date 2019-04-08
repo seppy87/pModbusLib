@@ -6,7 +6,12 @@
 namespace d0 {
 
 	namespace ModBus {
-
+		//types
+		class ModbusServer;
+		struct ModBusServerEventArgs;
+		using ModbusCallback = std::function<void(const ModBus::ModbusServer* sender, ModBus::ModBusServerEventArgs& args)>;
+		using HoldingRegister = UINT16[65];
+		//typedef std::function<void()
 
 
 		struct Header {
@@ -14,12 +19,20 @@ namespace d0 {
 			unsigned int Length;
 			unsigned int DeviceId;
 			unsigned int Address;
+			std::string rawHeader;
 		};
 
-		//types
+		struct ModBusServerEventArgs {
+			Poco::Net::StreamSocket& socket;
+			const d0::ModBus::Header& header;
+			const std::string& msg;
+			HoldingRegister& reg;
+			std::function<void(int)> errorFunc;
+			ModBusServerEventArgs(Poco::Net::StreamSocket& socket, const ModBus::Header& header, const std::string& msg, d0::ModBus::HoldingRegister& reg) : socket(socket),header(header),msg(msg),reg(reg){}
 
-		typedef std::function<void(Poco::Net::StreamSocket&, const d0::ModBus::Header& header, const std::string& msg)> ModbusCallback;
+		};
 
+		
 		namespace fc {
 			constexpr int MB_READCOILS = 1;
 			constexpr int MB_READINPUTSTATUS = 2;
@@ -39,6 +52,14 @@ namespace d0 {
 			constexpr int MB_READWRITEMULTIPLEREGISTER = 23;
 		}
 
+		namespace ec {
+			constexpr int MB_UNSUPPORTED_FUNCTIONCODE = 1;
+			constexpr int MB_INVALIDADDRESS = 2;
+			constexpr int MB_INVALID_VALUES = 3;
+			constexpr int MB_SERVERBUSY = 6;
+			constexpr int MB_NORESPONSE = 11;
+		}
+
 		class ModbusServer : public Poco::Net::TCPServerConnection
 		{
 		public:
@@ -51,10 +72,13 @@ namespace d0 {
 
 			void setupCallback(int functionCode, ModbusCallback callback, bool async = false);
 
+			void sendErrorCode(int ErrorCode);
+
 		private:
 			std::map<int, std::string> MBAP;
 			Header header;
 			std::map<int, ModbusCallback> callbacks;
+			HoldingRegister reg;
 		};
 
 		
