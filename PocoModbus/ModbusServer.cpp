@@ -16,8 +16,10 @@ void d0::ModBus::ModbusServer::run()
 			std::cout << msg << std::endl;
 			this->processMBAP(msg);
 			if (this->callbacks.find(this->header.functionCode) != this->callbacks.end()) {
-				ModBus::ModBusServerEventArgs args(ss, this->header, msg);
+				ModBus::ModBusServerEventArgs args(ss, this->header, msg,this->reg);
 				args.errorFunc = [&](int errorCode) {this->sendErrorCode(errorCode); };
+				args.testBit = [&](UINT reg_number, UINT bitnumber) { return this->testRegisterBit(reg_number, bitnumber); };
+				args.sendReply = [&](std::optional<UINT16*> arg) { this->sendRegister(arg); };
 				this->callbacks[this->header.functionCode](this, args);
 			}
 			n = ss.receiveBytes(buffer, sizeof(buffer));
@@ -39,19 +41,19 @@ void d0::ModBus::ModbusServer::processMBAP(const std::string msg)
 	std::string hex = "";
 	hex += msg[40];
 	hex += msg[41];
-	header.Length = d0::getHex(hex);
-	std::cout << "LEngth = " << header.Length<<'\n';//msg[40]<<msg[41] << '\n';
+	header.Length = d0::getHex(hex.c_str());
+	std::cout << "Length = " << header.Length<<'\n';//msg[40]<<msg[41] << '\n';
 	hex.clear();
 	hex += msg[24];
 	hex += msg[25];
-	header.DeviceId = d0::getHex(hex);
+	header.DeviceId = d0::getHex(hex.c_str());
 	std::cout << "Device ID = " << header.DeviceId << '\n';
 	hex.clear();
 	hex += msg[31];
 	hex += msg[32];
 	hex += msg[34];
 	hex += msg[35];
-	header.Address = d0::getHex(hex);
+	header.Address = d0::getHex(hex.c_str());
 	std::cout << "Address=" << header.Address << '\n';
 	this->header.rawHeader = msg.substr(0, 29);
 }
@@ -94,11 +96,41 @@ void d0::ModBus::ModbusServer::sendErrorCode(int ErrorCode)
 	}
 	char funcCode[5];
 	int val = this->header.functionCode + 128;
-	sprintf_s(funcCode, "%0x", val);
+	sprintf_s(funcCode, "%02X", val);
 	std::string newHeader = "";
 	newHeader = std::string(this->header.rawHeader);
 	newHeader.replace(newHeader.size() - 2, newHeader.size(), std::string(funcCode));
 	newHeader += (char)32;
 	newHeader += errCode;
 	socket().sendBytes(newHeader.c_str(), newHeader.size());
+}
+
+void d0::ModBus::ModbusServer::sendRegister(std::optional<UINT16*> args)
+{
+
+	UINT16* val = args.value_or(this->reg);
+	std::string RegStr = "";
+	for (UINT i = 0; i < 65; i++) {
+		char c[2];
+		memcpy_s(c, sizeof(c), (const void*)&val[i], 2);
+		RegStr += std::string(c);
+	}
+	socket().sendBytes(RegStr.c_str(), RegStr.size());
+}
+
+bool d0::ModBus::ModbusServer::testRegisterBit(UINT reg_number, UINT bitnumber)
+{
+	return (std::bitset<16>(this->reg[reg_number])).test(bitnumber);
+}
+
+std::string d0::ModBus::ModbusServer::uint16ToChar()
+{
+	std::string result = "";
+	for (UINT i = 0; i < 65; i++) {
+		auto cont = reg[i];
+		char c[5];
+		sprintf_s(c, "%02X", cont);
+		result += std::string(c) + (char)32;
+	}
+	return result;
 }

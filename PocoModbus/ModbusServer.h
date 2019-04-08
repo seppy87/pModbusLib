@@ -11,14 +11,13 @@ namespace d0 {
 		struct ModBusServerEventArgs;
 		using ModbusCallback = std::function<void(const ModBus::ModbusServer* sender, ModBus::ModBusServerEventArgs& args)>;
 		using HoldingRegister = UINT16[65];
-		//typedef std::function<void()
 
 
 		struct Header {
-			unsigned int functionCode;
-			unsigned int Length;
-			unsigned int DeviceId;
-			unsigned int Address;
+			unsigned int functionCode=0;
+			unsigned int Length=0;
+			unsigned int DeviceId=0;
+			unsigned int Address=0;
 			std::string rawHeader;
 		};
 
@@ -28,6 +27,8 @@ namespace d0 {
 			const std::string& msg;
 			HoldingRegister& reg;
 			std::function<void(int)> errorFunc;
+			std::function<bool(UINT, UINT)> testBit;
+			std::function<void(std::optional<UINT16*>)> sendReply;
 			ModBusServerEventArgs(Poco::Net::StreamSocket& socket, const ModBus::Header& header, const std::string& msg, d0::ModBus::HoldingRegister& reg) : socket(socket),header(header),msg(msg),reg(reg){}
 
 		};
@@ -73,6 +74,11 @@ namespace d0 {
 			void setupCallback(int functionCode, ModbusCallback callback, bool async = false);
 
 			void sendErrorCode(int ErrorCode);
+			void sendRegister(std::optional<UINT16*> args);
+
+			bool testRegisterBit(UINT reg_number, UINT bitnumber);
+
+			std::string uint16ToChar();
 
 		private:
 			std::map<int, std::string> MBAP;
@@ -86,8 +92,7 @@ namespace d0 {
 		typedef Poco::Net::TCPServerConnectionFactoryImpl<d0::ModBus::ModbusServer> TCPFactory;
 	}
 
-	inline
-		int getHex(std::string hexstr) {
-		return (int)strtol(hexstr.c_str(), 0, 16);
+	inline int getHex(const char* hexstr) {
+		return (int)strtol(hexstr, 0, 16);
 	}
 }

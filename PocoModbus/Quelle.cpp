@@ -15,6 +15,11 @@ void test(const d0::ModBus::ModbusServer* conn , d0::ModBus::ModBusServerEventAr
 
 int main(int argc, char** argv) {
 	Poco::Net::initializeNetwork();
+	auto ret = d0::ModBus::splitUINT16((UINT16)65500);
+	std::cout << "Small = " << (int)ret.first << "High=" << (int)ret.second << '\n';
+	auto back = d0::ModBus::joinUINT8(ret.first, ret.second);
+	std::cout << "UINT16=" << back << '\n';
+
 	auto t = new d0::ModBus::ModbusFactoryImpl();
 	
 	t->setupCallback(d0::ModBus::fc::MB_READHOLDINGREGISTER, &test);
